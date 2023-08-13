@@ -1,0 +1,164 @@
+stages:
+    - test
+    - deploy
+
+default:
+    image: ubuntu:16.04
+    tags:
+        - docker
+
+variables:
+    # TODO: build your own ci docker image, push it to the repository of your project and specify here.
+    PHP_TEST_IMAGE_NAME: .. # Test image name
+    DEPLOYER_IMAGE: .. # Deploy image name
+
+.add_ssh_key: &add_ssh_key
+    before_script:
+        - eval $(ssh-agent -s)
+        - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+        - mkdir -p ~/.ssh
+        - chmod 700 ~/.ssh
+        - ssh-keyscan $HOST_DEP >> ~/.ssh/known_hosts
+        - chmod 644 ~/.ssh/known_hosts
+
+.test:base: &test_base
+    stage: test
+    image: $PHP_TEST_IMAGE_NAME
+    before_script:
+        - cp .env.ci .env.local
+        - make c-inst
+    cache:
+        key: "vendor"
+        paths:
+            - vendor/
+
+test:php-cs:
+    <<: *test_base
+    script:
+        - make cs-dry-run
+    only:
+        refs:
+            - branches
+            - dev
+        changes:
+            - "src/**/*"
+            - "composer.json"
+            - ".php_cs/*"
+
+test:psalm:
+    <<: *test_base
+    script:
+        - make psalm
+    only:
+        refs:
+            - branches
+            - dev
+        changes:
+            - "src/**/*"
+            - "composer.json"
+            - "psalm.xml"
+            - "psalm_return_type.xml"
+
+test:phpstan:
+    <<: *test_base
+    script:
+        - make phpstan-ci
+    only:
+        refs:
+            - branches
+            - dev
+        changes:
+            - "config/**/*"
+            - "src/**/*"
+            - "composer.json"
+            - "phpstan.ci.neon"
+            - "phpstan.neon"
+
+test:phan:
+    <<: *test_base
+    script:
+        - make phan
+    only:
+        refs:
+            - branches
+            - dev
+        changes:
+            - "src/**/*"
+            - "composer.json"
+            - ".phan/*"
+
+test:prod:
+    <<: *test_base
+    variables:
+        MYSQL_DATABASE: .. # ci_db_name
+        MYSQL_USER: .. # ci_db_user
+        MYSQL_PASSWORD: .. # ci_db_password
+        MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    services:
+        - name: mysql:8.0
+          alias: db
+    script:
+        - make prod
+        - make migrate
+    only:
+        changes:
+            - "migrations/*"
+            - "src/**/*"
+            - "config/**/*"
+            - "composer.json"
+
+
+test:php-test:
+    <<: *test_base
+    variables:
+        MYSQL_DATABASE: .. # ci_db_name
+        MYSQL_USER: .. # ci_db_user
+        MYSQL_PASSWORD: .. # ci_db_password
+        MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    services:
+        - name: mysql:8.0
+          alias: db
+    script:
+        # - make reload-db-test
+        - make test
+
+.deploy_image: &deploy_image
+    image: $DEPLOYER_IMAGE
+
+.deploy_dev:base: &deploy_dev_base
+    <<: *deploy_image
+    <<: *add_ssh_key
+    variables:
+        SSH_PRIVATE_KEY: $SSH_PRIVATE_KEY_DEV
+        GIT_STRATEGY: none
+        HOST_DEP: $HOST_DEV
+        USER_DEP: $USER_DEV
+
+deploy:dev:
+    <<: *deploy_dev_base
+    stage: deploy
+    only:
+        - dev
+    script:
+        - ssh $USER_DEP@$HOST_DEP "cd $APP_FOLDER_DEV && git pull && make docker-up-test && docker-compose -f docker-compose.test.yml exec -T php make c-inst migrate dev"
+
+.deploy_prod:base: &deploy_prod_base
+    <<: *deploy_image
+    <<: *add_ssh_key
+    variables:
+        SSH_PRIVATE_KEY: $SSH_PRIVATE_KEY_PROD
+        GIT_STRATEGY: none
+        HOST_DEP: $HOST_PROD
+        USER_DEP: $USER_PROD
+
+deploy:prod:
+    <<: *deploy_prod_base
+    stage: deploy
+    only:
+        - master
+    script:
+        - ssh $USER_DEP@$HOST_DEP "cd $APP_FOLDER_PROD && git pull && docker-compose up --build -d && docker exec $(basename $APP_FOLDER_PROD)_php_1 make c-inst migrate prod supervisor-restart-all"
+    allow_failure: false
+    when: manual
+
+
