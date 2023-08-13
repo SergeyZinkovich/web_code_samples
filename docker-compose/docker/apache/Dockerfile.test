@@ -1,0 +1,5 @@
+FROM httpd:2.4
+
+COPY conf/test/*.conf /usr/local/apache2/conf/
+COPY conf/test/extra/*.conf /usr/local/apache2/conf/extra/
+COPY conf/test/extra/include/*.conf /usr/local/apache2/conf/extra/include/

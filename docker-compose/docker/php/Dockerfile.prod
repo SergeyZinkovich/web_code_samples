@@ -1,0 +1,73 @@
+FROM php:8.1-fpm
+
+COPY .bashrc /etc/bash.bashrc
+
+# Install linux packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sudo \
+    openssl \
+    git \
+    zip \
+    libzip-dev \
+    gnupg2 \
+    libicu-dev \
+    libpng-dev \
+    libc-client-dev \
+    libkrb5-dev \
+    libjpeg-dev \
+    bash-completion \
+    supervisor \
+    cron \
+    nano \
+    logrotate \
+    && rm -r /var/lib/apt/lists/*
+
+# Install composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && composer --version
+
+# Install node and yarn
+RUN curl -sL https://deb.nodesource.com/setup_12.x | bash - \
+    && curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - \
+    && echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+    yarn \
+    && rm -r /var/lib/apt/lists/*
+
+# Install and configure php extensions
+RUN docker-php-ext-configure intl \
+    && docker-php-ext-install intl \
+    && docker-php-ext-install pdo_mysql bcmath gd zip \
+    && PHP_OPENSSL=yes docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
+    && docker-php-ext-install imap \
+    && docker-php-ext-configure gd --with-jpeg=/usr/include/ --enable-gd \
+    && docker-php-ext-install gd \
+    && docker-php-ext-install opcache
+
+# Setup git
+RUN git config --global alias.st status
+
+# Setup php configs
+RUN cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini
+COPY conf.d/*.ini /usr/local/etc/php/conf.d/
+COPY conf.d/prod/* /usr/local/etc/php/conf.d/
+
+# Setup cron
+COPY cron /etc/cron.d/cron
+RUN chmod 0644 /etc/cron.d/cron
+RUN crontab /etc/cron.d/cron
+RUN touch /var/log/cron.log
+
+# Setup supervisor
+COPY supervisor/consumer/script /etc/supervisor/script
+COPY supervisor/supervisord.conf /etc/supervisor/supervisord.conf
+RUN mkdir -p /var/log/consumer
+RUN chmod a+x /etc/supervisor/script/*.sh
+
+# Setup logrotate
+COPY logrotate/logrotate.d/logrotate.conf /etc/logrotate.d/logrotate.conf
+COPY logrotate/logrotate.conf /etc/logrotate.conf
+RUN chmod 0644 /etc/logrotate.d/logrotate.conf /etc/logrotate.conf
+
+COPY startup.sh /
+ENTRYPOINT ["/bin/bash", "/startup.sh"]

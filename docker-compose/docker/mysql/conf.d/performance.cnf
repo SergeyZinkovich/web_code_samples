@@ -1,0 +1,23 @@
+# Performance configuration by Releem
+# https://habr.com/ru/post/555222/
+
+[mysqld]
+key_buffer_size = 8388608                   ### Previous value : 8388608
+max_allowed_packet = 1073741824             ### Previous value : 67108864
+sort_buffer_size = 262144                   ### Previous value : 262144
+read_rnd_buffer_size = 262144               ### Previous value : 262144
+bulk_insert_buffer_size = 8M                ### Previous value : 8388608
+myisam_sort_buffer_size = 8388608           ### Previous value : 8388608
+innodb_buffer_pool_instances = 2            ### Previous value : 1
+innodb_buffer_pool_size = 3221225472        ### Previous value : 134217728
+max_connections = 151                       ### Previous value : 151
+table_open_cache = 4096                     ### Previous value : 4000
+table_definition_cache = 2432               ### Previous value : 2000
+innodb_flush_log_at_trx_commit = 2          ### Previous value : 1
+innodb_log_file_size = 402653184            ### Previous value : 50331648
+innodb_write_io_threads = 4                 ### Previous value : 4
+innodb_read_io_threads = 4                  ### Previous value : 4
+innodb_file_per_table = 1                   ### Previous value : ON
+innodb_flush_method = O_DIRECT              ### Previous value : fsync
+innodb_thread_concurrency = 0               ### Previous value : 0
+innodb_buffer_pool_chunk_size = 134217728   ### Previous value : 134217728

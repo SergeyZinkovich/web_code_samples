@@ -1,0 +1,6 @@
+FROM httpd:2.4
+
+COPY conf/prod/*.conf /usr/local/apache2/conf/
+COPY conf/prod/extra/*.conf /usr/local/apache2/conf/extra/
+COPY conf/prod/extra/include/*.conf /usr/local/apache2/conf/extra/include/
+COPY certificates/* /usr/local/apache2/conf/extra/

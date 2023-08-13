@@ -1,0 +1,44 @@
+version: '3'
+
+services:
+    db:
+        build:
+            context: ./docker/mysql
+        volumes:
+            - ./db:/var/lib/mysql
+        ports:
+            - "15306:3306"
+        environment:
+            - MYSQL_ROOT_PASSWORD=db_password
+            - MYSQL_USER=db_user
+            - MYSQL_PASSWORD=db_password
+            - MYSQL_DATABASE=db_name
+            - TZ=Asia/Vladivostok
+            - LANG=C.UTF-8
+        cap_add:
+            - SYS_NICE  # CAP_SYS_NICE
+
+    php:
+        build:
+            context: ./docker/php
+            dockerfile: Dockerfile.dev
+        volumes:
+            - .:/app
+        working_dir: /app
+        environment:
+            - PHP_IDE_CONFIG=serverName=template.loc
+        depends_on:
+            - db
+        extra_hosts:
+            - host.docker.internal:host-gateway
+
+    httpd:
+        build:
+            context: ./docker/apache
+            dockerfile: Dockerfile.dev
+        ports:
+            - "8081:80"
+        volumes:
+            - .:/app
+        depends_on:
+            - php
