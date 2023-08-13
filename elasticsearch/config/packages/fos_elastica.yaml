@@ -1,0 +1,40 @@
+fos_elastica:
+    clients:
+        default: { url: '%env(ELASTICSEARCH_URL)%' }
+    indexes:
+        material___materials:
+            settings:
+                index:
+                    analysis:
+                        tokenizer:
+                            nGram:
+                                type:     nGram
+                                min_gram: 3
+                                max_gram: 3
+                        analyzer:
+                            custom_analyzer :
+                                type     :    custom
+                                tokenizer:    nGram
+                                filter   :    [asciifolding ,lowercase, snowball, elision]
+            persistence:
+                driver: orm
+                model: App\Project\Material\Entity\Material
+                provider: ~
+                finder: ~
+                listener: ~
+            properties:
+                nomenclature:
+                    type: "text"
+                    analyzer: custom_analyzer
+                    search_analyzer: custom_analyzer
+                is_with_vat: ~
+                price:
+                    type: "integer"
+                city:
+                    type: "object"
+                    properties:
+                        id: ~
+                seller:
+                    type: "object"
+                    properties:
+                        id: ~
