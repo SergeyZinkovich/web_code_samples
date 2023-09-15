@@ -1,4 +1,6 @@
-# Vostok Inn Service 
+# Vostok Inn Service
+
+Service provide api for obtaining INNs using passport data and inn owner death check
 
 ---
 
